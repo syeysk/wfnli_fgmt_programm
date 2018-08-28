@@ -52,6 +52,40 @@ void notFoundHandler() {
     webServer.send(404, "text/html", "<h1>Not found :-(</h1>");
 }
 
+void set_color(unsigned int color) {
+    analogWrite(PIN_R, color >> 32);
+    analogWrite(PIN_G, (color >> 16) && 0xff);
+    analogWrite(PIN_B, color && 0xff);
+}
+void save_color(unsigned int color) {
+    unsigned int full_color;
+    EEPROM.get(ee_addr_start_color, full_color);
+    full_color = (full_color && 0xff) + (color << 8);
+    EEPROM.put(ee_addr_start_color, full_color);
+}
+
+unsigned int read_color() {
+    unsigned int full_color;
+    EEPROM.get(ee_addr_start_color, full_color);
+    return full_color >> 8;
+}
+
+void set_brightness(byte brightness) {
+    analogWrite(PIN_Brightness, brightness);
+}
+void save_brightness(byte brightness) {
+    unsigned int full_color;
+    EEPROM.get(ee_addr_start_color, full_color);
+    full_color = (full_color << 8) + brightness;
+    EEPROM.put(ee_addr_start_color, full_color);
+}
+
+unsigned int read_brightness() {
+    unsigned int full_color;
+    EEPROM.get(ee_addr_start_color, full_color);
+    return full_color && 0xff;
+}
+
 void apiHandler() {
 
     String action = webServer.arg("action");
@@ -62,49 +96,27 @@ void apiHandler() {
     answer["message"] = "Успешно!";
     JsonObject& data = answer.createNestedObject("data");
 
-    if (action == "gpio") {
+    if (action == "set_color") {
 
-        String msg_d, msg_t;
+        //char _color[7];
+        //webServer.arg("color").substring(1).toCharArray(_color, sizeof(_color));
+        const char *_color = webServer.arg("color").substring(1).c_str();
+        unsigned int color = (unsigned int) strtol(_color, NULL, 16);
+        set_color(color);
+        save_color(color);
 
-        int channel = webServer.arg("channel").toInt();
-        int value = webServer.arg("value").toInt();
-        int sec_timer = webServer.arg("timer").toInt();
-        int sec_delay_press = webServer.arg("delay_press").toInt();
+        data["color"] = read_color();
+        answer["message"] = "Цвет изменён!";
 
-        if (sec_timer != 0) {
-            int cur_value = wfr_channels.read(channel);
-            timers[channel].once(sec_timer + sec_delay_press, Timer_channel_write, (channel<<8) + cur_value);
-            msg_t = "через "+ String(sec_timer, DEC) +" сек.";
-        }
-        if (sec_delay_press != 0) {
-            msg_d = " через "+ String(sec_delay_press, DEC) +" сек. будет";
-            delay_press[channel].once(sec_delay_press, Timer_channel_write, (channel<<8) + value);
-        } else {
-            wfr_channels.write(channel, value);
-        }
+    } else if (action == "set_brightness") {
 
-        value = wfr_channels.read(channel);
-        data["value"] = value;
+        byte brightness = webServer.arg("brighness").toInt();
+        set_brightness(brightness);
+        save_brightness(brightness);
 
-        if (value == 1) {
-          if (sec_timer != 0) msg_t = " Включится " + msg_t;
-          answer["message"] = "Канал " +String(channel+1, DEC)+ msg_d + " включён!" + msg_t;
-        } else {
-          if (sec_timer != 0) msg_t = " Выключится " + msg_t;
-          answer["message"] = "Канал " +String(channel+1, DEC)+ msg_d + " выключен!" + msg_t;
-        }
+        data["brightness"] = read_brightness();
+        answer["message"] = "Яркость изменена!";
 
-    } else if (action == "led") {
-          
-        byte value = webServer.arg("value").toInt();
-        digitalWrite(2, value==1?0:1);
-
-        value = digitalRead(2)==1?0:1;
-        data["value"] = value;
-
-        if (value == 1) answer["message"] = "LED включён!";
-        else answer["message"] = "LED выключен!";
-            
     } else if (action == "settings_mode") {
 
         String mode = webServer.arg("wifi_mode");
@@ -153,72 +165,14 @@ void apiHandler() {
 
         answer["message"] = "Сохранено!";
 
-    } else if (action == "settings_time") {
-
-        String _date = webServer.arg("date");
-        String _time = webServer.arg("time");
-        String source = webServer.arg("source");
-
-        if (source == "ntp") {
-        } else if (source == "hand" || source == "browser") {
-
-            //setSyncProvider(RTC.get);   // получаем время с RTC
-            //if (timeStatus() != timeSet)
-            //    Serial.println("Unable to sync with the RTC"); //синхронизация не удаласть
-            //else
-            //    Serial.println("RTC has set the system time");
-            TimeElements te;
-            te.Second = source=="browser" ? webServer.arg("seconds").toInt() : 0;
-            te.Minute = _time.substring(3, 5).toInt();
-            te.Hour = _time.substring(0, 2).toInt();
-            te.Day = _date.substring(8, 10).toInt();
-            te.Month = _date.substring(5, 7).toInt();
-            te.Year = _date.substring(0, 4).toInt() - 1970; //год в библиотеке отсчитывается с 1970
-            time_t timeVal = makeTime(te);
-            RTC.set(timeVal);
-            setTime(timeVal);
-        }
-
-        answer["message"] = "Время обновлено!";
-
     } else if (action == "get_data") {
 
         String data_type = webServer.arg("data_type");
 
-        if (data_type == "std" || data_type == "all") {
+        if (data_type == "managing" || data_type == "all") {
 
-            data["count_outlets"] = COUNT_OUTLETS;
-
-            JsonObject& _stat = data.createNestedObject("stat");
-            statistic_update();
-            _stat["vcc"] = stat.vcc;
-            _stat["time_h"] = stat.time_h;
-            _stat["time_m"] = stat.time_m;
-            _stat["time_s"] = stat.time_s;
-
-            _stat["rtc_h"] = stat.rtc_h;
-            _stat["rtc_m"] = stat.rtc_m;
-            _stat["rtc_s"] = stat.rtc_s;
-            _stat["rtc_day"] = stat.rtc_day;
-            _stat["rtc_month"] = stat.rtc_month;
-            _stat["rtc_year"] = stat.rtc_year;
-            _stat["rtc_is"] = stat.rtc_is;
-            //data.parseObject();
-            //JsonObject& _settings = settings.parseObject(ee_data);
-
-        }
-        
-        if (data_type == "btn" || data_type == "all") {
-
-            data["bt_panel"] = ee_data.bt_panel;
-            data["max_size"] = BT_PANEL_SIZE;
-
-        }
-
-        if (data_type == "btn" || data_type == "std" || data_type == "all") {
-
-            data["gpio_std"] = wfr_channels.read_all();
-            data["gpio_led"] = digitalRead(2)==1?0:1;
+            data["color"] = read_color();
+            data["brightness"] = read_brightness();
             
         }
 
@@ -234,33 +188,11 @@ void apiHandler() {
             _settings["update_time"] = ee_data.update_time;
 
             JsonObject& _stat = data.createNestedObject("stat");
-            statistic_update();
-
-            _stat["rtc_h"] = stat.rtc_h;
-            _stat["rtc_m"] = stat.rtc_m;
-            _stat["rtc_s"] = stat.rtc_s;
-            _stat["rtc_day"] = stat.rtc_day;
-            _stat["rtc_month"] = stat.rtc_month;
-            _stat["rtc_year"] = stat.rtc_year;
-            _stat["rtc_is"] = stat.rtc_is;
 
         }
         data["update_time"] = ee_data.update_time; // для того, чтобы изменение этого значения сразу вступили в силу
 
         answer["message"] = "Информация на странице обновлена";
-
-    } else if (action == "bt_panel_save") {
-
-        webServer.arg("bt_panel").toCharArray(ee_data.bt_panel, sizeof(ee_data.bt_panel));
-
-        EEPROM.put(ee_addr_start_settings, ee_data);
-        EEPROM.commit();
-
-        //bt_panel = webServer.arg("bt_panel");
-        //webServer.arg("bt_panel").toCharArray(bt_panel, sizeof(bt_panel));
-        //EEPROM.put(ee_addr_start_bt_panel, bt_panel);
-
-        answer["message"] = "Панель сохранена";
 
     } else if (action == "settings_reboot") {
         restart();
