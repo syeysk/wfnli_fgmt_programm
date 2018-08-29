@@ -36,6 +36,13 @@ struct DefaultSettings {
     unsigned int update_time = 2000;
 };
 
+struct WFRStatistic {
+    float vcc = 0;
+    String time_s = "00";
+    String time_m = "00";
+    String time_h = "00";
+};
+
 // eeprom addresses
 const unsigned int ee_addr_start_firstrun = 0;
 const unsigned int ee_addr_start_color = 1; // Red Green Blue Brightness
@@ -44,6 +51,7 @@ const unsigned int ee_addr_start_settings = 5;
 const byte code_firstrun = 2;
 
 DefaultSettings ee_data;
+WFRStatistic stat;
 
 byte is_wifi_client_connected = 0;
 
@@ -63,7 +71,6 @@ void save_color(unsigned int color) {
     full_color = (full_color && 0xff) + (color << 8);
     EEPROM.put(ee_addr_start_color, full_color);
 }
-
 unsigned int read_color() {
     unsigned int full_color;
     EEPROM.get(ee_addr_start_color, full_color);
@@ -71,20 +78,52 @@ unsigned int read_color() {
 }
 
 void set_brightness(byte brightness) {
+    brightness = brightness && 0xff;
     analogWrite(PIN_Brightness, brightness);
 }
 void save_brightness(byte brightness) {
     unsigned int full_color;
+    brightness = brightness && 0xff;
     EEPROM.get(ee_addr_start_color, full_color);
     full_color = (full_color << 8) + brightness;
     EEPROM.put(ee_addr_start_color, full_color);
 }
-
-unsigned int read_brightness() {
+byte read_brightness() {
     unsigned int full_color;
     EEPROM.get(ee_addr_start_color, full_color);
     return full_color && 0xff;
 }
+
+void turn(byte t) {
+    if (t == 0) {
+        set_brightness(t);
+    } else {
+        set_brightness(read_brightness());
+    }
+}
+
+byte read_turn() {
+   if (analogRead(PIN_Brightness) > 0) {return 0;} else {return 1;}
+}
+
+void statistic_update(void) {
+
+    // время работы
+  
+    unsigned long t = millis()/1000;
+    byte h = t/3600;
+    byte m = (t-h*3600)/60;
+    unsigned int s = (t-h*3600-m*60);
+
+    stat.time_h = (h>9?"":"0") + String(h, DEC);
+    stat.time_m = (m>9?"":"0") + String(m, DEC);
+    stat.time_s = (s>9?"":"0") + String(s, DEC);
+
+    // напряжение
+
+    stat.vcc = ((float)(ESP.getVcc()))/1000 - 0.19;
+}
+
 
 void apiHandler() {
 
@@ -116,6 +155,15 @@ void apiHandler() {
 
         data["brightness"] = read_brightness();
         answer["message"] = "Яркость изменена!";
+
+    } else if (action == "turn") {
+
+        byte t = webServer.arg("turn").toInt();
+
+        turn(t);
+        
+        if (t == 0) answer["message"] = "Выключено!";
+        else answer["message"] = "Включено!";
 
     } else if (action == "settings_mode") {
 
@@ -173,7 +221,14 @@ void apiHandler() {
 
             data["color"] = read_color();
             data["brightness"] = read_brightness();
-            
+            data["turn"] = read_turn();            
+
+            JsonObject& _stat = data.createNestedObject("stat");
+            statistic_update();
+            _stat["vcc"] = stat.vcc;
+            _stat["time_h"] = stat.time_h;
+            _stat["time_m"] = stat.time_m;
+            _stat["time_s"] = stat.time_s;
         }
 
         if (data_type == "set" || data_type == "all") {
@@ -280,6 +335,7 @@ void setup() {
 
     pinMode(pin_btn_reset, INPUT);
     attachInterrupt(pin_btn_reset, reset_settings_btn, RISING);
+    analogWriteRange(255);
 
     /* Инициализация настроек */
 
