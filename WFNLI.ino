@@ -11,10 +11,10 @@
 #include <Ticker.h>
 #include <ArduinoJson.h>
 
-#define PIN_R 1
-#define PIN_G 1
-#define PIN_B 1
-#define PIN_Brightness 1
+#define PIN_R 4
+#define PIN_G 5
+#define PIN_B 12
+#define PIN_Brightness 13
 
 ESP8266WebServer webServer(80);
 
@@ -25,7 +25,7 @@ byte pin_btn_reset = 14;
 struct DefaultSettings {
     byte wifi_mode = 0; // 0 - точка доступа, 1 - клиент, 2 - оба варианта одновременно
 
-    char ssidAP[32] = "WiFi_Relay";
+    char ssidAP[32] = "WiFi_NightLight";
     char passwordAP[32] = "";
 
     char ssid[32] = "Your name";
@@ -61,15 +61,20 @@ void notFoundHandler() {
 }
 
 void set_color(unsigned int color) {
-    analogWrite(PIN_R, color >> 32);
-    analogWrite(PIN_G, (color >> 16) && 0xff);
-    analogWrite(PIN_B, color && 0xff);
+    byte r = (color >> 16) & 0xff;
+    byte g = (color >> 8) & 0xff;
+    byte b = color & 0xff;
+    Serial.println("Color = "+String(r, DEC)+", "+String(g, DEC)+", "+String(b, DEC));
+    analogWrite(PIN_R, r);
+    analogWrite(PIN_G, g);
+    analogWrite(PIN_B, b);
 }
 void save_color(unsigned int color) {
     unsigned int full_color;
     EEPROM.get(ee_addr_start_color, full_color);
-    full_color = (full_color && 0xff) + (color << 8);
+    full_color = (full_color & 0xff) + (color << 8);
     EEPROM.put(ee_addr_start_color, full_color);
+    EEPROM.commit();
 }
 unsigned int read_color() {
     unsigned int full_color;
@@ -78,20 +83,21 @@ unsigned int read_color() {
 }
 
 void set_brightness(byte brightness) {
-    brightness = brightness && 0xff;
+    brightness = brightness & 0xff;
     analogWrite(PIN_Brightness, brightness);
 }
 void save_brightness(byte brightness) {
     unsigned int full_color;
-    brightness = brightness && 0xff;
+    brightness = brightness & 0xff;
     EEPROM.get(ee_addr_start_color, full_color);
-    full_color = (full_color << 8) + brightness;
+    full_color = (full_color & 0xffffff00) + brightness;
     EEPROM.put(ee_addr_start_color, full_color);
+    EEPROM.commit();
 }
 byte read_brightness() {
     unsigned int full_color;
     EEPROM.get(ee_addr_start_color, full_color);
-    return full_color && 0xff;
+    return full_color & 0xff;
 }
 
 void turn(byte t) {
@@ -121,7 +127,7 @@ void statistic_update(void) {
 
     // напряжение
 
-    stat.vcc = ((float)(ESP.getVcc()))/1000 - 0.19;
+    stat.vcc = ((float)(ESP.getVcc()))/20000;
 }
 
 
@@ -139,8 +145,10 @@ void apiHandler() {
 
         //char _color[7];
         //webServer.arg("color").substring(1).toCharArray(_color, sizeof(_color));
-        const char *_color = webServer.arg("color").substring(1).c_str();
-        unsigned int color = (unsigned int) strtol(_color, NULL, 16);
+
+        //const char *_color = webServer.arg("color").substring(1).c_str();
+        //unsigned int color = (unsigned int) strtol(_color, NULL, 16);
+        unsigned int color = (unsigned int) strtol(webServer.arg("color").substring(1).c_str(), NULL, 16);
         set_color(color);
         save_color(color);
 
@@ -149,7 +157,7 @@ void apiHandler() {
 
     } else if (action == "set_brightness") {
 
-        byte brightness = webServer.arg("brighness").toInt();
+        byte brightness = webServer.arg("brightness").toInt();
         set_brightness(brightness);
         save_brightness(brightness);
 
@@ -336,6 +344,8 @@ void setup() {
     pinMode(pin_btn_reset, INPUT);
     attachInterrupt(pin_btn_reset, reset_settings_btn, RISING);
     analogWriteRange(255);
+    turn(1);
+    set_color(read_color());
 
     /* Инициализация настроек */
 
