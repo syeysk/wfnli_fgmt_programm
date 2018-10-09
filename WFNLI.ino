@@ -3,7 +3,8 @@
  * 
  */
 
-
+#define LANG_RU 1
+//#define LANG_EN 1
 
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -138,7 +139,11 @@ void apiHandler() {
     DynamicJsonBuffer jsonBuffer;
     JsonObject& answer = jsonBuffer.createObject();
     answer["success"] = 1;
-    answer["message"] = "Успешно!";
+    #if defined(LANG_RU)
+        answer["message"] = "Успешно!";
+    #elif defined(LANG_EN)
+         answer["message"] = "Success!";
+    #endif
     JsonObject& data = answer.createNestedObject("data");
 
     if (action == "set_color") {
@@ -153,7 +158,11 @@ void apiHandler() {
         save_color(color);
 
         data["color"] = read_color();
-        answer["message"] = "Цвет изменён!";
+        #if defined(LANG_RU)
+            answer["message"] = "Цвет изменён!";
+        #elif defined(LANG_EN)
+            answer["message"] = "The color was changed!";
+        #endif
 
     } else if (action == "set_brightness") {
 
@@ -162,16 +171,31 @@ void apiHandler() {
         save_brightness(brightness);
 
         data["brightness"] = read_brightness();
-        answer["message"] = "Яркость изменена!";
+        #if defined(LANG_RU)
+            answer["message"] = "Яркость изменена!";
+        #elif defined(LANG_EN)
+            answer["message"] = "The brightness was changed!";
+        #endif
 
     } else if (action == "turn") {
 
         byte t = webServer.arg("turn").toInt();
 
         turn(t);
-        
-        if (t == 0) answer["message"] = "Выключено!";
-        else answer["message"] = "Включено!";
+
+        if (t == 0) {
+             #if defined(LANG_RU)
+                answer["message"] = "Выключено!";
+             #elif defined(LANG_EN)
+                answer["message"] = "Turned off!";
+            #endif
+        } else {
+             #if defined(LANG_RU)
+                answer["message"] = "Включено!";
+             #elif defined(LANG_EN)
+                answer["message"] = "Turned on!";
+            #endif
+        }
 
     } else if (action == "settings_mode") {
 
@@ -183,7 +207,11 @@ void apiHandler() {
         EEPROM.commit();
 
         data["value"] = ee_data.wifi_mode;
-        answer["message"] = "Сохранено!";
+        #if defined(LANG_RU)
+            answer["message"] = "Сохранено!";
+        #elif defined(LANG_EN)
+           answer["message"] = "Saved!";
+        #endif
 
     } else if (action == "settings_device_name") {
 
@@ -193,7 +221,11 @@ void apiHandler() {
         EEPROM.put(ee_addr_start_settings, ee_data);
         EEPROM.commit();
 
-        answer["message"] = "Сохранено!";
+        #if defined(LANG_RU)
+            answer["message"] = "Сохранено!";
+        #elif defined(LANG_EN)
+           answer["message"] = "Saved!";
+        #endif
 
     } else if (action == "settings_other") {
 
@@ -203,7 +235,11 @@ void apiHandler() {
         EEPROM.put(ee_addr_start_settings, ee_data);
         EEPROM.commit();
 
-        answer["message"] = "Сохранено!";
+        #if defined(LANG_RU)
+            answer["message"] = "Сохранено!";
+        #elif defined(LANG_EN)
+           answer["message"] = "Saved!";
+        #endif
 
     } else if (action == "settings") {
 
@@ -219,7 +255,11 @@ void apiHandler() {
         EEPROM.put(ee_addr_start_settings, ee_data);
         EEPROM.commit();
 
-        answer["message"] = "Сохранено!";
+        #if defined(LANG_RU)
+            answer["message"] = "Сохранено!";
+        #elif defined(LANG_EN)
+           answer["message"] = "Saved!";
+        #endif
 
     } else if (action == "get_data") {
 
@@ -255,7 +295,11 @@ void apiHandler() {
         }
         data["update_time"] = ee_data.update_time; // для того, чтобы изменение этого значения сразу вступили в силу
 
-        answer["message"] = "Информация на странице обновлена";
+        #if defined(LANG_RU)
+            answer["message"] = "Информация на странице обновлена";
+        #elif defined(LANG_EN)
+           answer["message"] = "Infoirmation was updated on the page!";
+        #endif
 
     } else if (action == "settings_reboot") {
         restart();
@@ -263,7 +307,11 @@ void apiHandler() {
         reset_settings();
     } else {
         answer["success"] = 0;
-        answer["message"] = "неверный API";
+        #if defined(LANG_RU)
+            answer["message"] = "неверный API";
+        #elif defined(LANG_EN)
+           answer["message"] = "Unknown API!";
+        #endif
     }
 
     String sAnswer;
@@ -333,6 +381,8 @@ byte wfr_wifiClient_start(byte trying_count) {
 void setup() {
 
     /* Первичная инициализация */
+
+    digitalWrite(2, HIGH);
   
     Serial.begin(115200);
     delay(10);
