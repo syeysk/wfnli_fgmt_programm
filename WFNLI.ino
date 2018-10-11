@@ -12,10 +12,10 @@
 #include <Ticker.h>
 #include <ArduinoJson.h>
 
-#define PIN_R 4
-#define PIN_G 5
-#define PIN_B 12
-#define PIN_Brightness 13
+#define PIN_R 16
+#define PIN_G 12
+#define PIN_B 13
+#define PIN_Brightness 5
 
 ESP8266WebServer webServer(80);
 
