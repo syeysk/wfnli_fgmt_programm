@@ -58,6 +58,8 @@ WFRStatistic stat;
 
 byte is_wifi_client_connected = 0;
 
+byte is_turn_on = 1;
+
 
 void notFoundHandler() {
     webServer.send(404, "text/html", "<h1>Not found :-(</h1>");
@@ -104,15 +106,16 @@ byte read_brightness() {
 }
 
 void turn(byte t) {
+    is_turn_on = t;
     if (t == 0) {
-        set_brightness(t);
+        set_color(0);//set_brightness(t);
     } else {
-        set_brightness(read_brightness());
+        set_color(read_color());//set_brightness(read_brightness());
     }
 }
 
 byte read_turn() {
-   if (analogRead(PIN_Brightness) > 0) {return 0;} else {return 1;}
+   return is_turn_on;//if (analogRead(PIN_Brightness) > 0) {return 0;} else {return 1;}
 }
 
 void statistic_update(void) {
@@ -156,7 +159,7 @@ void apiHandler() {
         //const char *_color = webServer.arg("color").substring(1).c_str();
         //unsigned int color = (unsigned int) strtol(_color, NULL, 16);
         unsigned int color = (unsigned int) strtol(webServer.arg("color").substring(1).c_str(), NULL, 16);
-        set_color(color);
+        if (read_turn()) set_color(color);
         save_color(color);
 
         data["color"] = read_color();
@@ -169,7 +172,7 @@ void apiHandler() {
     } else if (action == "set_brightness") {
 
         byte brightness = webServer.arg("brightness").toInt();
-        set_brightness(brightness);
+        if (read_turn()) set_brightness(brightness);
         save_brightness(brightness);
 
         data["brightness"] = read_brightness();
