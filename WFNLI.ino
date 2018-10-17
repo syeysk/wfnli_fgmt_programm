@@ -6,6 +6,8 @@
 #define LANG_RU 1
 //#define LANG_EN 1
 
+#define DEVICE_TYPE "wfnli"
+
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <EEPROM.h>
@@ -294,6 +296,7 @@ void apiHandler() {
 
         }
         data["update_time"] = ee_data.update_time; // для того, чтобы изменение этого значения сразу вступили в силу
+        data["device_type"] = DEVICE_TYPE;
 
         #if defined(LANG_RU)
             answer["message"] = "Информация на странице обновлена";
