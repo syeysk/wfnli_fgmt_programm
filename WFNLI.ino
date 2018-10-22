@@ -18,10 +18,84 @@
 #define PIN_G 12
 #define PIN_B 13
 #define PIN_Brightness 5
+#define PIN_BTN_LEFT 4
+#define PIN_BTN_RIGHT 5
 
 ESP8266WebServer webServer(80);
 
 byte pin_btn_reset = 14;
+
+// '#' + parseInt(16642312).toString(16).padStart(6, '0');
+unsigned int colors[] = {
+                         16729344, // orange
+                       //16642312, // yellow #fdf108
+                         16645376, // yellow #fdfd00
+                       //7927813, // green #78f805
+                         64768, // green #00fd00
+                         586492, // light blue #08f2fc
+                       //1333986, // blue #145ae2
+                         1052925, // blue #1010fd
+                       //14418175, // пурпурный #dc00ff
+                         16523503, // пурпурный #fc20ef
+                       //16268306, // red #f83c12
+                         15597568, // red #ee0000
+                         };
+int current_color_index = 0;
+
+void select_color(int direction) {
+    current_color_index += direction;
+    if (current_color_index < 0) current_color_index = 6;
+    if (current_color_index > 6) current_color_index = 0;
+
+    unsigned int color = colors[current_color_index];
+
+    set_color(color);
+    save_color(color);
+}
+
+volatile unsigned int is_btn_pressed = 0;
+byte max_press = 1;
+
+void select_prev_color() {
+    //delay(50);
+    //if (digitalRead(PIN_BTN_LEFT)==1) return;
+
+    //if (is_btn_pressed < max_press) {is_btn_pressed += 1; return;}
+
+    if (is_btn_pressed == 0) {is_btn_pressed = 1;}
+    else {return;}
+    
+    select_color(-1);
+
+    //delay(100);
+
+    is_btn_pressed = 0;
+}
+
+void select_next_color() {
+
+    unsigned int x = 0;
+    while(x < 32000) x+=1;
+    x = 0;
+    while(x < 32000) x+=1;
+    x = 0;
+    while(x < 32000) x+=1;
+    x = 0;
+    while(x < 32000) x+=1;
+    x = 0;
+  
+    //if (digitalRead(PIN_BTN_RIGHT)==1) return;
+
+    //if (is_btn_pressed < max_press) {is_btn_pressed += 1; return;}
+
+    //if (is_btn_pressed == 0) {is_btn_pressed = 1;}
+    //else {return;}
+ 
+    select_color(1);
+    //delay(100);
+
+    //is_btn_pressed = 0;
+}
 
 // состояния каналов реле мы не храним в структуре, а отдельно,
 // чтобы при каждом изменении сотсояния не трогать настройки.
@@ -399,6 +473,9 @@ void setup() {
 
     pinMode(pin_btn_reset, INPUT);
     attachInterrupt(pin_btn_reset, reset_settings_btn, RISING);
+    attachInterrupt(digitalPinToInterrupt(PIN_BTN_RIGHT), select_next_color, FALLING);
+    attachInterrupt(digitalPinToInterrupt(PIN_BTN_LEFT), select_prev_color, FALLING);
+    //attachInterrupt(PIN_BTN_RIGHT, f, FALLING);
     analogWriteRange(255);
     turn(1);
     set_color(read_color());
