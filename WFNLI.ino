@@ -472,6 +472,7 @@ void setup() {
     Serial.println();
 
     pinMode(pin_btn_reset, INPUT);
+    // https://mirrobo.ru/c-arduino-ide-esp8266-preryvaniya-interrupt/
     attachInterrupt(pin_btn_reset, reset_settings_btn, RISING);
     attachInterrupt(digitalPinToInterrupt(PIN_BTN_RIGHT), select_next_color, FALLING);
     attachInterrupt(digitalPinToInterrupt(PIN_BTN_LEFT), select_prev_color, FALLING);
