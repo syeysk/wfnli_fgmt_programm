@@ -123,7 +123,8 @@ struct WFRStatistic {
 // eeprom addresses
 const unsigned int ee_addr_start_firstrun = 0;
 const unsigned int ee_addr_start_color = 1; // Red Green Blue Brightness
-const unsigned int ee_addr_start_settings = 5;
+const unsigned int ee_addr_start_demo = 2;
+const unsigned int ee_addr_start_settings = 6;
 
 const byte code_firstrun = 2;
 
@@ -131,9 +132,10 @@ DefaultSettings ee_data;
 WFRStatistic stat;
 
 byte is_wifi_client_connected = 0;
-
 byte is_turn_on = 1;
-
+byte is_demo = 0;
+Ticker ticker_demo;
+byte demo_current_color_index = 0;
 
 void notFoundHandler() {
     webServer.send(404, "text/html", "<h1>Not found :-(</h1>");
@@ -190,6 +192,28 @@ void turn(byte t) {
 
 byte read_turn() {
    return is_turn_on;//if (analogRead(PIN_Brightness) > 0) {return 0;} else {return 1;}
+}
+
+byte set_demo(byte turn) {
+    if (turn == 1 and ticker_demo.active() == 0) ticker_demo.attach(1.5, do_demo);
+    if (turn == 0 and ticker_demo.active() == 1) ticker_demo.detach();
+
+    is_demo = turn;
+    EEPROM.put(ee_addr_start_demo, is_demo);
+    EEPROM.commit();
+}
+
+byte read_demo() {
+    byte is_demo;
+    EEPROM.get(ee_addr_start_demo, is_demo);
+    return is_demo;
+}
+
+void do_demo() {
+    if (read_turn() == 0) return;
+    set_color(colors[demo_current_color_index]);
+    demo_current_color_index += 1;
+    if (demo_current_color_index >= 7) demo_current_color_index = 0;    
 }
 
 void statistic_update(void) {
@@ -276,6 +300,26 @@ void apiHandler() {
             #endif
         }
 
+    } else if (action == "demo") {
+
+        byte t = webServer.arg("turn").toInt();
+
+        set_demo(t);
+
+        if (t == 0) {
+             #if defined(LANG_RU)
+                answer["message"] = "Демонстрация выключена!";
+             #elif defined(LANG_EN)
+                answer["message"] = "Demo has been turned off!";
+            #endif
+        } else {
+             #if defined(LANG_RU)
+                answer["message"] = "Демонстрация  включена!";
+             #elif defined(LANG_EN)
+                answer["message"] = "Demo has been turned on!";
+            #endif
+        }
+
     } else if (action == "settings_mode") {
 
         String mode = webServer.arg("wifi_mode");
@@ -348,7 +392,8 @@ void apiHandler() {
 
             data["color"] = read_color();
             data["brightness"] = read_brightness();
-            data["turn"] = read_turn();            
+            data["turn"] = read_turn();
+            data["demo"] = read_demo();
 
             JsonObject& _stat = data.createNestedObject("stat");
             statistic_update();
@@ -486,6 +531,7 @@ void setup() {
     if (EEPROM.read(ee_addr_start_firstrun) != code_firstrun) { // Устанавливаем настройки по умолчанию (если изделие запущено первый раз или настройки быв сброшены пользователем)
         EEPROM.put(ee_addr_start_settings, ee_data);
         EEPROM.put(ee_addr_start_color, 0x0000aaff);
+        EEPROM.put(ee_addr_start_demo, 0);
         EEPROM.write(ee_addr_start_firstrun, code_firstrun); // при презапуске устройства код в этих скобках уже не выполнится, если вновь не сбросить натсройки
         EEPROM.commit();
     }
@@ -546,6 +592,10 @@ void setup() {
     webServer.begin();
     //server.begin();
     Serial.println("Server started");
+
+    /* Tickers */
+
+    if (read_demo()) set_demo(1);
 
 }
 
