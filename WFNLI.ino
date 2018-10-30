@@ -136,6 +136,7 @@ byte is_turn_on = 1;
 byte is_demo = 0;
 Ticker ticker_demo;
 byte demo_current_color_index = 0;
+byte demo_stps[] = {0, 0};
 
 void notFoundHandler() {
     webServer.send(404, "text/html", "<h1>Not found :-(</h1>");
@@ -195,8 +196,14 @@ byte read_turn() {
 }
 
 byte set_demo(byte turn) {
-    if (turn == 1 and ticker_demo.active() == 0) ticker_demo.attach(1.5, do_demo);
+    if (turn == 1 and ticker_demo.active() == 0) ticker_demo.attach_ms(5, do_demo);
     if (turn == 0 and ticker_demo.active() == 1) ticker_demo.detach();
+
+    if (turn  == 1) {
+        analogWrite(PIN_R, 0);
+        analogWrite(PIN_G, 0);
+        analogWrite(PIN_B, 127);
+    }
 
     is_demo = turn;
     EEPROM.put(ee_addr_start_demo, is_demo);
@@ -211,9 +218,34 @@ byte read_demo() {
 
 void do_demo() {
     if (read_turn() == 0) return;
-    set_color(colors[demo_current_color_index]);
+
+    /*set_color(colors[demo_current_color_index]);
     demo_current_color_index += 1;
-    if (demo_current_color_index >= 7) demo_current_color_index = 0;    
+    if (demo_current_color_index >= 7) demo_current_color_index = 0;*/
+
+    if (demo_stps[0] == 0) { // fade от голубого к фиолетовому
+        analogWrite(PIN_R, demo_stps[1]);
+    } else  if (demo_stps[0] == 1) { // fade от фиолетового к красному
+        analogWrite(PIN_B, demo_stps[1]);
+    } else  if (demo_stps[0] == 2) { // fade от красного к желтому
+        analogWrite(PIN_G, demo_stps[1]);
+    } else  if (demo_stps[0] == 3) { // fade от желтого к зеленому
+        analogWrite(PIN_R, demo_stps[1]);
+    } else  if (demo_stps[0] == 4) { // fade от зеленого к зеленовато-голубому
+        analogWrite(PIN_B, demo_stps[1]);
+    } else  if (demo_stps[0] == 5) { // fade от зеленовато-голубого к голубому
+        analogWrite(PIN_G, demo_stps[1]);
+    }
+
+    if (demo_stps[0] % 2 == 0) demo_stps[1] += 1;
+    else demo_stps[1] -= 1;
+
+    if (demo_stps[1] == 0 || demo_stps[1] == 255) {
+        demo_stps[0] += 1;
+        if (demo_stps[0] > 5) demo_stps[0] = 0;
+        Serial.println(String(demo_stps[0])+"   "+demo_stps[1]);
+    }
+   
 }
 
 void statistic_update(void) {
