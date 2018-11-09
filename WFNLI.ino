@@ -123,10 +123,11 @@ struct WFRStatistic {
 // eeprom addresses
 const unsigned int ee_addr_start_firstrun = 0;
 const unsigned int ee_addr_start_color = 1; // Red Green Blue Brightness
-const unsigned int ee_addr_start_demo = 2;
-const unsigned int ee_addr_start_settings = 6;
+const unsigned int ee_addr_start_demo = 5;
+const unsigned int ee_addr_start_demo_speed = 6;
+const unsigned int ee_addr_start_settings = 7;
 
-const byte code_firstrun = 2;
+const byte code_firstrun = 4;
 
 DefaultSettings ee_data;
 WFRStatistic stat;
@@ -196,7 +197,10 @@ byte read_turn() {
 }
 
 byte set_demo(byte turn) {
-    if (turn == 1 and ticker_demo.active() == 0) ticker_demo.attach_ms(5, do_demo);
+    byte demo_speed = 0;
+    EEPROM.get(ee_addr_start_demo_speed, demo_speed);
+  
+    if (turn == 1 and ticker_demo.active() == 0) ticker_demo.attach_ms(demo_speed, do_demo);
     if (turn == 0 and ticker_demo.active() == 1) ticker_demo.detach();
 
     if (turn  == 1) {
@@ -337,6 +341,7 @@ void apiHandler() {
         byte t = webServer.arg("turn").toInt();
 
         set_demo(t);
+        if (t == 0) set_color(read_color());
 
         if (t == 0) {
              #if defined(LANG_RU)
@@ -351,6 +356,27 @@ void apiHandler() {
                 answer["message"] = "Demo has been turned on!";
             #endif
         }
+
+    } else if (action == "demo_speed") {
+
+        byte demo_speed = webServer.arg("speed").toInt();
+
+        EEPROM.put(ee_addr_start_demo_speed, demo_speed);
+        EEPROM.commit();
+
+        EEPROM.get(ee_addr_start_demo_speed, demo_speed);
+
+        if (read_demo()) {
+            set_demo(0);
+            set_demo(1);
+        }
+
+        data["speed"] = demo_speed;
+         #if defined(LANG_RU)
+            answer["message"] = "Скорость изменена!";
+         #elif defined(LANG_EN)
+            answer["message"] = "Speed has been changed!";
+        #endif
 
     } else if (action == "settings_mode") {
 
@@ -426,6 +452,10 @@ void apiHandler() {
             data["brightness"] = read_brightness();
             data["turn"] = read_turn();
             data["demo"] = read_demo();
+
+            byte demo_speed = 0;
+            EEPROM.get(ee_addr_start_demo_speed, demo_speed);
+            data["demo_speed"] = demo_speed;
 
             JsonObject& _stat = data.createNestedObject("stat");
             statistic_update();
@@ -563,7 +593,8 @@ void setup() {
     if (EEPROM.read(ee_addr_start_firstrun) != code_firstrun) { // Устанавливаем настройки по умолчанию (если изделие запущено первый раз или настройки быв сброшены пользователем)
         EEPROM.put(ee_addr_start_settings, ee_data);
         EEPROM.put(ee_addr_start_color, 0x0000aaff);
-        EEPROM.put(ee_addr_start_demo, 0);
+        EEPROM.write(ee_addr_start_demo, 1);
+        EEPROM.write(ee_addr_start_demo_speed, 5);
         EEPROM.write(ee_addr_start_firstrun, code_firstrun); // при презапуске устройства код в этих скобках уже не выполнится, если вновь не сбросить натсройки
         EEPROM.commit();
     }
