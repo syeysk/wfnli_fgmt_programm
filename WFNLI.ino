@@ -196,22 +196,28 @@ byte read_turn() {
    return is_turn_on;//if (analogRead(PIN_Brightness) > 0) {return 0;} else {return 1;}
 }
 
-byte set_demo(byte turn) {
+void set_demo(byte turn, byte from_start) {
     byte demo_speed = 0;
     EEPROM.get(ee_addr_start_demo_speed, demo_speed);
   
     if (turn == 1 and ticker_demo.active() == 0) ticker_demo.attach_ms(demo_speed, do_demo);
     if (turn == 0 and ticker_demo.active() == 1) ticker_demo.detach();
 
-    if (turn  == 1) {
+    if (turn == 1 && from_start == 1) {
         analogWrite(PIN_R, 0);
         analogWrite(PIN_G, 0);
         analogWrite(PIN_B, 127);
+        demo_stps[0] = 0;
+        demo_stps[1] = 0;
     }
 
     is_demo = turn;
     EEPROM.put(ee_addr_start_demo, is_demo);
     EEPROM.commit();
+}
+
+void set_demo(byte turn) {
+    set_demo(turn, 1);
 }
 
 byte read_demo() {
@@ -368,7 +374,7 @@ void apiHandler() {
 
         if (read_demo()) {
             set_demo(0);
-            set_demo(1);
+            set_demo(1, 0);
         }
 
         data["speed"] = demo_speed;
