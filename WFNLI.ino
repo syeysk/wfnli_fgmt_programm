@@ -346,43 +346,64 @@ void apiHandler() {
 
         byte t = webServer.arg("turn").toInt();
 
-        set_demo(t);
-        if (t == 0) set_color(read_color());
+        if (read_turn()) {
 
-        if (t == 0) {
-             #if defined(LANG_RU)
-                answer["message"] = "Демонстрация выключена!";
-             #elif defined(LANG_EN)
-                answer["message"] = "Demo has been turned off!";
-            #endif
+            set_demo(t);
+            if (t == 0) set_color(read_color());
+
+            if (t == 0) {
+                 #if defined(LANG_RU)
+                    answer["message"] = "Демонстрация выключена!";
+                 #elif defined(LANG_EN)
+                    answer["message"] = "Demo has been turned off!";
+                #endif
+            } else {
+                 #if defined(LANG_RU)
+                    answer["message"] = "Демонстрация включена!";
+                 #elif defined(LANG_EN)
+                    answer["message"] = "Demo has been turned on!";
+                 #endif
+            }
         } else {
              #if defined(LANG_RU)
-                answer["message"] = "Демонстрация  включена!";
+                answer["message"] = "Включите светильник!";
              #elif defined(LANG_EN)
-                answer["message"] = "Demo has been turned on!";
-            #endif
+                answer["message"] = "Turn the lighter on!";
+             #endif
+             answer["success"] = 0;
         }
 
     } else if (action == "demo_speed") {
 
         byte demo_speed = webServer.arg("speed").toInt();
 
-        EEPROM.put(ee_addr_start_demo_speed, demo_speed);
-        EEPROM.commit();
+        if (read_turn()) {
 
-        EEPROM.get(ee_addr_start_demo_speed, demo_speed);
+            EEPROM.put(ee_addr_start_demo_speed, demo_speed);
+            EEPROM.commit();
 
-        if (read_demo()) {
-            set_demo(0);
-            set_demo(1, 0);
+            EEPROM.get(ee_addr_start_demo_speed, demo_speed);
+
+            if (read_demo()) {
+                set_demo(0);
+                set_demo(1, 0);
+            }
+
+            data["speed"] = demo_speed;
+            #if defined(LANG_RU)
+                answer["message"] = "Скорость изменена!";
+            #elif defined(LANG_EN)
+                answer["message"] = "Speed has been changed!";
+            #endif
+
+        } else {
+             #if defined(LANG_RU)
+                answer["message"] = "Включите светильник!";
+             #elif defined(LANG_EN)
+                answer["message"] = "Turn the lighter on!";
+             #endif
+             answer["success"] = 0;
         }
-
-        data["speed"] = demo_speed;
-         #if defined(LANG_RU)
-            answer["message"] = "Скорость изменена!";
-         #elif defined(LANG_EN)
-            answer["message"] = "Speed has been changed!";
-        #endif
 
     } else if (action == "settings_mode") {
 
