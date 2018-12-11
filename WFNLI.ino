@@ -102,7 +102,7 @@ void select_next_color() {
 struct DefaultSettings {
     byte wifi_mode = 0; // 0 - точка доступа, 1 - клиент, 2 - оба варианта одновременно
 
-    char ssidAP[32] = "WiFi_NightLight";
+    char ssidAP[32] = "SYeysk_WFNLI";
     char passwordAP[32] = "";
 
     char ssid[32] = "Your name";
